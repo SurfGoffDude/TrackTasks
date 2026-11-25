@@ -45,7 +45,13 @@ Cask лежит в `packaging/homebrew/Casks/tracktasks.rb`; агент ниче
 1. Один раз: создать репозиторий `homebrew-tracktasks` (на GitHub), скопировать туда `Casks/tracktasks.rb`, заменить `OWNER` на владельца репозитория релизов (url и homepage).
 2. Каждый релиз: `./release.sh`, затем GitHub Release с тегом `v<версия>` и файлом `build/release/TrackTasks-<версия>.zip`.
 3. `tools/update-cask.sh build/release/TrackTasks-<версия>.zip <путь к tap>/Casks/tracktasks.rb` — подставит версию (из имени архива) и SHA-256 (сверит с `.sha256` рядом), проверит `ruby -c`. dry-run архивы скрипт отвергает.
-4. Закоммитить и отправить tap. Установка: `brew install --cask <владелец>/tracktasks/tracktasks`; `tt` ставится ссылкой на `Contents/Helpers/tt`.
+4. Закоммитить и отправить tap. Установка (`tt` ставится ссылкой на `Contents/Helpers/tt`):
+   ```sh
+   brew tap surfgoffdude/tracktasks
+   brew trust --cask surfgoffdude/tracktasks/tracktasks   # новый Homebrew не загружает cask сторонних tap без доверия
+   brew install --cask surfgoffdude/tracktasks/tracktasks
+   ```
+   Если Homebrew старый и команды `brew trust` в нём нет, пропусти её.
 - Требуется macOS 26 (`depends_on macos: ">= :tahoe"`). `brew uninstall` проекты и задачи не трогает; `brew uninstall --zap` удаляет только данные приложения (Application Support, кеш, настройки, состояние окон). Идентификатор в путях `zap` менять вместе с `CFBundleIdentifier`.
 - Перед публикацией проверить на чистой машине: `brew audit --cask --new tracktasks`, `brew install --cask`, запуск `tt --version`.
 

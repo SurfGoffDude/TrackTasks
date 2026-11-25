@@ -106,7 +106,7 @@ struct TaskLintTests {
     }
 
     /// Tasks of this repository are well-formed: zero warnings.
-    @Test func thisProjectTasksAreClean() throws {
+    @Test(.enabled(if: hasOwnTasks)) func thisProjectTasksAreClean() throws {
         let dir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("tasks")

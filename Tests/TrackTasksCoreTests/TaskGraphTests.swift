@@ -70,7 +70,7 @@ struct TaskGraphTests {
     }
 
     /// Same waves as «Волнами по приоритету» for all unfinished tasks (Store.enqueue → WavePlan).
-    @Test func matchesWavePlanOnThisProject() throws {
+    @Test(.enabled(if: hasOwnTasks)) func matchesWavePlanOnThisProject() throws {
         var dir = URL(fileURLWithPath: #filePath)
         for _ in 0..<3 { dir.deleteLastPathComponent() }
         let items = Codec.tasks(in: dir.appendingPathComponent("tasks"))

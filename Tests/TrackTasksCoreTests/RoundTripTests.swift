@@ -81,7 +81,7 @@ struct RoundTripTests {
 
     /// Every task of this project survives parse → serialize. Trailing spaces are ignored
     /// (older app builds wrote `completed: `; the serializer now writes bare `completed:`).
-    @Test func allProjectTasksUnchanged() throws {
+    @Test(.enabled(if: hasOwnTasks)) func allProjectTasksUnchanged() throws {
         let dir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("tasks")
