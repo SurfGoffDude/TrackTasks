@@ -5,7 +5,7 @@ import Foundation
 public struct CLI {
     public static let schema = 1
     /// The only place with the version: tools/stamp-version.sh puts it into the app's Info.plist.
-    public static let version = "1.0"
+    public static let version = "1.1"
 
     public var cwd: URL
     public var root: URL
