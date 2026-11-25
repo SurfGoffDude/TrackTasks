@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>TrackTasks</string>
+    <key>CFBundleDisplayName</key><string>TrackTasks</string>
+    <key>CFBundleIdentifier</key><string>io.github.surfgoffdude.TrackTasks</string>
+    <key>CFBundleExecutable</key><string>TrackTasks</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key><string>26.0</string>
+    <key>CFBundleURLTypes</key>
+    <array><dict>
+        <key>CFBundleURLName</key><string>io.github.surfgoffdude.TrackTasks.link</string>
+        <key>CFBundleURLSchemes</key><array><string>tracktasks</string></array>
+    </dict></array>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSAppTransportSecurity</key>
+    <dict><key>NSAllowsLocalNetworking</key><true/></dict>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSRemindersFullAccessUsageDescription</key><string>Личные задачи TrackTasks хранятся в Напоминаниях и синхронизируются с iPhone.</string>
+    <key>NSRemindersUsageDescription</key><string>Личные задачи TrackTasks хранятся в Напоминаниях и синхронизируются с iPhone.</string>
+    <key>NSAppleEventsUsageDescription</key><string>TrackTasks открывает Ghostty или Terminal в папке проекта и запускает Claude Code.</string>
+</dict>
+</plist>
