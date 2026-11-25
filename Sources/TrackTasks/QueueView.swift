@@ -38,10 +38,9 @@ struct QueueView: View {
                         .disabled(!store.jobs.jobs.contains { !$0.isActive })
                         .fixedSize()
                 }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) { controls(queue: queue) }
-                    VStack(alignment: .leading, spacing: 8) { controls(queue: queue) }
-                }
+                // Not ViewThatFits: it updates both copies while measuring, the stepper's update invalidates the window,
+                // and the layout never ends (a whole core while the queue is open).
+                FlowLayout(spacing: 10) { controls(queue: queue) }
                 DangerBar()
                 WaitingForYouView()
                 QueueBulkBar()
@@ -61,7 +60,7 @@ struct QueueView: View {
                     .foregroundStyle(.secondary)
 
                 if !orphans.isEmpty {
-                    OrphanWorktrees(items: orphans) { orphans = store.jobs.orphanWorktrees() }
+                    OrphanWorktrees(items: orphans) { Task { await loadOrphans() } }
                 }
 
                 if jobs.isEmpty {
@@ -88,9 +87,13 @@ struct QueueView: View {
         }
         .background(Backdrop(tint: .orange))
         .navigationTitle("Очередь Claude")
-        .task { orphans = store.jobs.orphanWorktrees() }
-        .sheet(isPresented: $cleanupShown, onDismiss: { orphans = store.jobs.orphanWorktrees() }) { WorktreeCleanupView().environment(store) }
-        .onChange(of: store.jobs.cleaning) { if !store.jobs.cleaning { orphans = store.jobs.orphanWorktrees() } }
+        .task { await loadOrphans() }
+        .sheet(isPresented: $cleanupShown, onDismiss: { Task { await loadOrphans() } }) { WorktreeCleanupView().environment(store) }
+        .onChange(of: store.jobs.cleaning) { if !store.jobs.cleaning { Task { await loadOrphans() } } }
+    }
+
+    private func loadOrphans() async {
+        orphans = await store.jobs.orphanWorktrees()
     }
 
     private func focus(_ scroll: ScrollViewProxy) {
@@ -205,7 +208,10 @@ struct OrphanWorktrees: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular.tint(.purple.opacity(0.08)), in: .rect(cornerRadius: 16))
         .sheet(item: $removing) { item in
-            CleanupConfirm(item: item) { overriding in remove(item, overriding) }.environment(store)
+            CleanupConfirm(item: item, confirm: { overriding in remove(item) { await $0.cleanUp(item.group, overriding: overriding) } },
+                           forget: { remove(item) { await $0.forgetMissing(item.group) } },
+                           trash: { remove(item) { await $0.trashOrphan(item.group) } })
+                .environment(store)
         }
         .alert("Ветка трогает файлы с незакоммиченными правками",
                isPresented: Binding(get: { overlap != nil }, set: { if !$0 { overlap = nil } }), presenting: overlap) { o in
@@ -306,10 +312,10 @@ struct OrphanWorktrees: View {
         }
     }
 
-    private func remove(_ item: CleanupItem, _ overriding: Set<WorktreeCleanup.Protection>) {
+    private func remove(_ item: CleanupItem, _ work: @escaping @MainActor (JobQueue) async -> String?) {
         busy = item.id
         Task {
-            let why = await store.jobs.cleanUp(item.group, overriding: overriding)
+            let why = await work(store.jobs)
             busy = nil
             for p in item.group.paths { note[p] = why }
             if why == nil { store.reload() }

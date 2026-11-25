@@ -44,10 +44,9 @@ enum Worktrees {
         Log.git.process("git", project: url.lastPathComponent, command: args.joined(separator: " "))
         do { try p.run() } catch { return Result(ok: false, out: "", err: error.localizedDescription) }
         // Read both pipes concurrently so a chatty stderr can't block the process.
-        var errData = Data()
+        nonisolated(unsafe) var errData = Data()
         let g = DispatchGroup()
-        g.enter()
-        DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); g.leave() }
+        OwnThread.start(group: g) { errData = err.fileHandleForReading.readDataToEndOfFile() }
         let outData = out.fileHandleForReading.readDataToEndOfFile()
         g.wait()
         p.waitUntilExit()

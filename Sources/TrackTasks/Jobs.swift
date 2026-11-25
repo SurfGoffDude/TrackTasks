@@ -77,7 +77,7 @@ final class JobQueue {
          docker: DockerHost? = nil, dockerHost: (@MainActor () -> DockerHost?)? = nil,
          dangerMode: @escaping @MainActor () -> DangerMode = { DangerModeStore.shared.mode },
          taskVerifyStore: TaskVerifyStore = .shared,
-         projectsRoot: @escaping () -> URL = { Store.savedRoot }, worktreesRoot: URL = Worktrees.root,
+         projectsRoot: @escaping () -> URL = { Store.savedRoot }, worktreesRoot: URL? = nil,
          limits: @escaping @MainActor () -> Limits.Snapshot = { Limits.shared.snapshot }, now: @escaping () -> Date = { Date() },
          drafts: DiffDrafts? = nil, previews: PreviewDrafts? = nil,
          questionNotice: @escaping @MainActor (Job) -> Void = { JobQueue.postQuestionNotice($0) },
@@ -85,7 +85,8 @@ final class JobQueue {
         self.storeURL = storeURL
         self.taskVerifyStore = taskVerifyStore
         self.projectsRoot = projectsRoot
-        self.worktreesRoot = worktreesRoot
+        // A queue with its own store (tests) must not leave worktrees among the real ones.
+        self.worktreesRoot = worktreesRoot ?? (storeURL == Self.storeURL ? Worktrees.root : storeURL.deletingLastPathComponent().appendingPathComponent("worktrees", isDirectory: true))
         let dir = storeURL.deletingLastPathComponent()
         snapshots = WorktreeSnapshots(folder: dir.appendingPathComponent("worktree-snapshots", isDirectory: true))
         pinsURL = dir.appendingPathComponent("worktree-cleanup.json")

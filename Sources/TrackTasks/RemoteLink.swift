@@ -110,12 +110,12 @@ final class RemoteLink: @unchecked Sendable {
         switch input {
         case .none: break
         case .data(let d):
-            DispatchQueue.global().async {
+            OwnThread.start {
                 try? w.write(contentsOf: d)
                 try? w.close()
             }
         case .file(let url, let from):
-            DispatchQueue.global().async {
+            OwnThread.start {
                 defer { try? w.close() }
                 guard let h = try? FileHandle(forReadingFrom: url) else { return }
                 defer { try? h.close() }
@@ -127,7 +127,7 @@ final class RemoteLink: @unchecked Sendable {
         }
         let errBuf = Flag()
         let errDone = DispatchSemaphore(value: 0)
-        DispatchQueue.global().async {
+        OwnThread.start {
             while case let d = err.fileHandleForReading.availableData, !d.isEmpty { errBuf.append(d) }
             errDone.signal()
         }

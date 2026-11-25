@@ -55,7 +55,7 @@ extension JobQueue {
         }
         return await withCheckedContinuation { c in
             // One thread takes and releases the lock.
-            DispatchQueue.global(qos: .userInitiated).async {
+            OwnThread.start {
                 guard locked else { return c.resume(returning: body()) }
                 let deadline = Date().addingTimeInterval(wait)
                 guard let gate = Verify.acquire(folder, cancelled: { Date() > deadline }) else {

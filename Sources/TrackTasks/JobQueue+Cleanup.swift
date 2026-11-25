@@ -106,7 +106,7 @@ extension JobQueue {
     }
 
     /// `held`: this cleanup itself keeps the group busy.
-    private func queueFacts(_ g: CleanupGroup, held: Bool) -> [String: WorktreeCleanup.Facts] {
+    func queueFacts(_ g: CleanupGroup, held: Bool) -> [String: WorktreeCleanup.Facts] {
         let ids = Set(g.jobs.map(\.id))
         let related = jobs.filter { j in
             ids.contains(j.id) || j.parentID.map(ids.contains) == true || j.forkOf.map(ids.contains) == true
@@ -223,7 +223,7 @@ extension JobQueue {
         return .init(members: members, activity: known ? last : nil)
     }
 
-    private func groupState(_ g: CleanupGroup, held: Bool = false) async -> WorktreeCleanup.Group {
+    func groupState(_ g: CleanupGroup, held: Bool = false) async -> WorktreeCleanup.Group {
         let list = g.infos
         let disk = await Task.detached(priority: .utility) { Self.diskFacts(list) }.value
         return state(g, disk, held: held)

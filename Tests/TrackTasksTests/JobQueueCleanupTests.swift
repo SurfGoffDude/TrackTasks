@@ -101,7 +101,8 @@ import TrackTasksCore
         git("branch", w.branch, at: app)
         let back = try #require(try await q.restoreWorktrees(r).get().first)
         #expect(edited(back.path) && read(back.path, "x.log") == nil && back.branch != w.branch && back.path != w.path)
-        #expect(q.pinnedWorktrees == [back.path.path] && q.orphanWorktrees().map(\.branch) == [back.branch])
+        let orphans = await q.orphanWorktrees()
+        #expect(q.pinnedWorktrees == [back.path.path] && orphans.map(\.branch) == [back.branch])
         #expect(try await facts(q).verdict == .keep("закреплён"))
         let again = try await q.restoreWorktrees(r).get()
         #expect(again[0].path != back.path && edited(back.path))
@@ -109,6 +110,43 @@ import TrackTasksCore
         try q.snapshots.delete(r)
         #expect(q.snapshots.list().items.isEmpty && refs(app).isEmpty)
         #expect(JobQueue.loadPins(q.pinsURL)?.count == 2)
+    }
+
+    @Test func missingFolderIsForgottenAndTheBranchStays() async throws {
+        let q = queue(), j = try task(q)
+        let w = try #require(j.worktree)
+        #expect(await q.forgetMissing(try group(q)) != nil && j.worktree != nil)
+        try fm.removeItem(at: w.path)
+        let g = try await group(q)
+        #expect(await q.damagedState(g)?.damage == .folderGone)
+        j.state = .running
+        #expect(await q.forgetMissing(g) != nil && j.worktree != nil)
+        j.state = .done
+        #expect(await q.forgetMissing(g) == nil && j.worktree == nil)
+        git("rev-parse", "--verify", "refs/heads/\(w.branch)", at: app)
+        #expect(await q.cleanupGroups().isEmpty)
+    }
+
+    @Test func orphanWithoutARepository() async throws {
+        let q = queue(), j = try task(q)
+        let w = try #require(j.worktree)
+        // Repository alive: the usual removal only.
+        #expect(await q.damagedState(try group(q)) == nil)
+        #expect(await q.trashOrphan(try group(q)) != nil)
+        try fm.moveItem(at: app, to: base.appendingPathComponent("moved"))
+        // Its task protects it, so does a pin.
+        #expect(await q.damagedState(try group(q))?.damage == .mainGone)
+        #expect(await q.trashOrphan(try group(q)) == "У папки есть задача")
+        q.jobs = []
+        q.pin([w.path.path], true)
+        #expect(await q.trashOrphan(try group(q)) == "Закреплён")
+        #expect(fm.fileExists(atPath: w.path.path))
+    }
+
+    /// A queue of a test must not put worktrees among the real ones.
+    @Test func ownStoreOwnWorktrees() {
+        let q = JobQueue(storeURL: store, agents: AgentRegistry([FakeAgent()]), dangerMode: { DangerMode() }, recordSpend: { _, _, _, _ in })
+        #expect(q.worktreesRoot.path == wts.path)
     }
 
     @Test func eachProtection() async throws {

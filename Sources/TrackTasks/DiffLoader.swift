@@ -73,10 +73,9 @@ enum DiffLoader {
         p.standardInput = FileHandle.nullDevice
         Log.git.process("git", project: dir.lastPathComponent, command: args.joined(separator: " "))
         do { try p.run() } catch { return .init(ok: false, out: "", err: error.localizedDescription) }
-        var errData = Data()
+        nonisolated(unsafe) var errData = Data()
         let g = DispatchGroup()
-        g.enter()
-        DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); g.leave() }
+        OwnThread.start(group: g) { errData = err.fileHandleForReading.readDataToEndOfFile() }
         var data = Data()
         var cut = false
         while let chunk = try? out.fileHandleForReading.read(upToCount: 1 << 20), !chunk.isEmpty {
@@ -126,16 +125,13 @@ extension DiffLoader {
             let h = inp.fileHandleForWriting
             // git may exit before reading everything: an error, not a signal.
             _ = fcntl(h.fileDescriptor, F_SETNOSIGPIPE, 1)
-            g.enter()
-            DispatchQueue.global().async {
+            OwnThread.start(group: g) {
                 try? h.write(contentsOf: input)
                 try? h.close()
-                g.leave()
             }
         }
-        var errData = Data()
-        g.enter()
-        DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); g.leave() }
+        nonisolated(unsafe) var errData = Data()
+        OwnThread.start(group: g) { errData = err.fileHandleForReading.readDataToEndOfFile() }
         let data = out.fileHandleForReading.readDataToEndOfFile()
         g.wait()
         p.waitUntilExit()

@@ -18,7 +18,13 @@ TT_SIGN_IDENTITY="Developer ID Application: Имя (TEAMID)" TT_NOTARY_PROFILE=t
 - Предпосылки проверяются до сборки: сертификат, профиль, чистый git, постоянный идентификатор (не `local.*`). Затем universal-сборка, подпись `tt` и приложения с hardened runtime, нотаризация, staple, проверка Gatekeeper.
 - Результат — `build/release/TrackTasks-<версия>.zip` и `.sha256`; проверочный — в `build/release-dry-run`. `tt` лежит внутри: `ln -s /Applications/TrackTasks.app/Contents/Helpers/tt ~/.local/bin/tt`.
 - Версия задаётся в одном месте — `CLI.version` (`Sources/TrackTasksCore/CLI.swift`); скрипты сборки вписывают её в `Info.plist` приложения.
+- Номер версии — `X.Y.Z`:
+  - `X.0.0` — огромное обновление пользовательского опыта;
+  - `0.X.0` — новые функции;
+  - `0.0.X` — только исправления.
+  - В релизе есть изменения разного уровня — растёт старшая из подходящих цифр, младшие обнуляются.
 - `release.entitlements`: Apple Events (открыть терминал) и личные данные календаря (Напоминания через EventKit). Песочницы и послаблений hardened runtime нет.
+- Полный релиз одной командой у владельца — `./publish.sh` (тип релиза и описание спросит): номер версии, тесты, `release.sh`, публичный репозиторий, GitHub Release, tap. До успешной сборки ничего не публикуется; после сбоя запустить снова. В публичный репозиторий скрипт не входит.
 - `./build.sh` и `./share.sh` сертификата не требуют.
 - Первая сборка скачивает Sparkle (готовый xcframework) с GitHub. Если SwiftPM стоит на «Downloading binary artifact», он ждёт доступа к Keychain: `swift package --disable-keychain resolve` один раз, дальше архив берётся из кеша.
 

@@ -77,12 +77,10 @@ enum MergeRunner {
                     mayLand: @escaping @MainActor @Sendable () -> String? = { nil }) async -> SafeMerge.Report {
         token.begin()
         defer { token.end() }
-        return await withCheckedContinuation { c in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let report = locked(w, known, artifacts, allowed, token, task, onPhase, mayLand)
-                if case .merged = report.outcome, !keep { cleanUp(w, scripts: scripts) }
-                c.resume(returning: report)
-            }
+        return await OwnThread.run {
+            let report = locked(w, known, artifacts, allowed, token, task, onPhase, mayLand)
+            if case .merged = report.outcome, !keep { cleanUp(w, scripts: scripts) }
+            return report
         }
     }
 

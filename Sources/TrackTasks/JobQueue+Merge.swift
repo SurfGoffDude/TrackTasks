@@ -427,8 +427,11 @@ extension JobQueue {
     }
 
     /// Worktrees on disk that no job owns (left after a crash or manual cleanup of the queue).
-    func orphanWorktrees() -> [Worktrees.Info] {
+    func orphanWorktrees() async -> [Worktrees.Info] {
+        let root = worktreesRoot
+        // git in every worktree: not on the main thread.
+        let found = await OwnThread.run { Worktrees.scan(root: root) }
         let owned = Set(allMembers.compactMap { $0.worktree?.path.path })
-        return Worktrees.scan(root: worktreesRoot).filter { !owned.contains($0.path.path) }
+        return found.filter { !owned.contains($0.path.path) }
     }
 }

@@ -33,11 +33,15 @@ extension JobQueue {
                 if MergeRunner.needsMac(command, in: c.dir) { skipped = true; command = "" }
                 if command.isEmpty, taskGate == nil { continue }
                 if await MainActor.run(body: { job.cancelRequested }) { break }
-                let p = Verify.run(command, taskGate, in: c.dir, project: c.project) { p in
-                    Task { @MainActor in
-                        guard job.verifying else { return }
-                        job.verifyProcess = p
-                        if job.cancelRequested { p.kill() }
+                // Waits for the project's check lock and the check itself, up to half an hour.
+                let check = command
+                let p = await OwnThread.run {
+                    Verify.run(check, taskGate, in: c.dir, project: c.project) { p in
+                        Task { @MainActor in
+                            guard job.verifying else { return }
+                            job.verifyProcess = p
+                            if job.cancelRequested { p.kill() }
+                        }
                     }
                 }
                 r = p.result

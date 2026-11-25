@@ -85,7 +85,8 @@ import TrackTasksCore
         #expect(read(app, "f.txt") == "1\n" && read(api, "f.txt") == "1\n")
         #expect(DiffSource(job: part).folder == pw.path && DiffSource(job: part).jobID == j.id)
         #expect(q.forkBlocked(j) != nil)
-        #expect(Set(q.orphanWorktrees().map(\.path)).isDisjoint(with: [w.path, pw.path]))
+        let orphans = await q.orphanWorktrees()
+        #expect(Set(orphans.map(\.path)).isDisjoint(with: [w.path, pw.path]))
         for c in q.jobs where c.parentID == j.id { q.cancel(c) }
         try await wait { !q.hasActiveChild(j) }
 

@@ -209,7 +209,7 @@ public struct Tmux: Sendable {
         do { try p.run() } catch { return Output(ok: false, out: "", err: error.localizedDescription) }
         let eof = DispatchGroup()
         for (pipe, box) in [(out, outBox), (err, errBox)] {
-            DispatchQueue.global().async(group: eof) { box.data = pipe.fileHandleForReading.readDataToEndOfFile() }
+            OwnThread.start(group: eof) { box.data = pipe.fileHandleForReading.readDataToEndOfFile() }
         }
         guard exited.wait(timeout: .now() + timeout) == .success else {
             Darwin.kill(p.processIdentifier, SIGKILL)

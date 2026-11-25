@@ -35,14 +35,14 @@ enum TimedProcess {
         let outBuf = Buffer(outputLimit), errBuf = Buffer(outputLimit)
         let eof = DispatchGroup()
         func drain(_ pipe: Pipe, _ buf: Buffer) {
-            DispatchQueue.global().async(group: eof) {
+            OwnThread.start(group: eof) {
                 while case let d = pipe.fileHandleForReading.availableData, !d.isEmpty { buf.append(d); onOutput?(String(decoding: d, as: UTF8.self)) }
             }
         }
         if !discardOutput { drain(out, outBuf) }
         drain(err, errBuf)
         if let input {
-            DispatchQueue.global().async {
+            OwnThread.start {
                 try? stdin.fileHandleForWriting.write(contentsOf: Data(input.utf8))
                 try? stdin.fileHandleForWriting.close()
             }

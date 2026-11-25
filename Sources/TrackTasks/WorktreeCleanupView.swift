@@ -51,7 +51,9 @@ struct WorktreeCleanupView: View {
         .frame(width: 760, height: 620)
         .task { await load() }
         .sheet(item: $shown) { item in
-            CleanupConfirm(item: item) { overriding in remove(item, overriding) }
+            CleanupConfirm(item: item, confirm: { overriding in remove(item) { await $0.cleanUp(item.group, overriding: overriding) } },
+                           forget: { remove(item) { await $0.forgetMissing(item.group) } },
+                           trash: { remove(item) { await $0.trashOrphan(item.group) } })
         }
         .confirmationDialog("Удалить снимок «\(dropping?.label ?? "")»?", isPresented: Binding(get: { dropping != nil }, set: { if !$0 { dropping = nil } }),
                             presenting: dropping) { r in
@@ -138,11 +140,11 @@ struct WorktreeCleanupView: View {
         }
     }
 
-    private func remove(_ i: CleanupItem, _ overriding: Set<WorktreeCleanup.Protection>) {
+    private func remove(_ i: CleanupItem, _ work: @escaping @MainActor (JobQueue) async -> String?) {
         busy.insert(i.id)
         notes[i.id] = "Убираю…"
         Task {
-            notes[i.id] = await store.jobs.cleanUp(i.group, overriding: overriding)
+            notes[i.id] = await work(store.jobs)
             busy.remove(i.id)
             await load()
         }
@@ -177,6 +179,13 @@ struct CleanupConfirm: View {
     @Environment(\.dismiss) private var dismiss
     let item: CleanupItem
     let confirm: (Set<WorktreeCleanup.Protection>) -> Void
+    let forget: () -> Void
+    let trash: () -> Void
+    @State private var damage: WorktreeDamage?
+    @State private var damageBlocks: [WorktreeCleanup.Block] = []
+    @State private var asking = false
+    @State private var asked = false
+    @State private var advice: WorktreeDamage.Advice?
     @State private var preview: [CleanupPreview]?
     @State private var agreed = false
 
@@ -191,25 +200,77 @@ struct CleanupConfirm: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            if let damage { damaged(damage) } else {
             Text("Папка, ветка и чекпоинты удаляются. Перед удалением выполняется подтверждённый teardown.").font(.caption).foregroundStyle(.secondary)
             if !hard.isEmpty {
                 Label("Убрать нельзя: \(WorktreeCleanup.text(hard))", systemImage: "lock").foregroundStyle(.orange)
             } else if !soft.isEmpty {
                 Toggle("Убрать, хотя \(WorktreeCleanup.text(soft))", isOn: $agreed)
             }
+            }
             HStack {
                 Spacer()
                 Button("Отмена", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Убрать со снимком", role: .destructive) {
-                    confirm(Set(soft.map(\.protection)))
-                    dismiss()
+                switch damage {
+                case .folderGone:
+                    Button("Убрать из списка") { forget(); dismiss() }
+                case .mainGone:
+                    Button("В Корзину", role: .destructive) { trash(); dismiss() }
+                        .disabled(advice?.delete != true || !damageBlocks.isEmpty || !item.group.jobs.isEmpty)
+                case nil:
+                    Button("Убрать со снимком", role: .destructive) {
+                        confirm(Set(soft.map(\.protection)))
+                        dismiss()
+                    }
+                    .disabled(!hard.isEmpty || (!soft.isEmpty && !agreed) || preview == nil)
                 }
-                .disabled(!hard.isEmpty || (!soft.isEmpty && !agreed) || preview == nil)
             }
         }
         .padding(20)
         .frame(width: 560, height: 460)
-        .task { preview = await store.jobs.cleanupPreview(item.group) }
+        .task {
+            if let d = await store.jobs.damagedState(item.group) {
+                damageBlocks = WorktreeDamage.blocks(d.state)
+                damage = d.damage
+                preview = []
+                if d.damage == .mainGone, damageBlocks.isEmpty, item.group.jobs.isEmpty { await ask() }
+            } else {
+                preview = await store.jobs.cleanupPreview(item.group)
+            }
+        }
+    }
+
+    private func ask() async {
+        asking = true
+        advice = await store.jobs.damageAdvice(item.group)
+        asked = true
+        asking = false
+    }
+
+    @ViewBuilder
+    private func damaged(_ d: WorktreeDamage) -> some View {
+        ForEach(item.group.infos) { Text($0.path.path).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled) }
+        switch d {
+        case .folderGone:
+            Label("Папки уже нет, удалять нечего. Запись уйдёт из списка, ветка не тронута.", systemImage: "folder.badge.questionmark")
+        case .mainGone:
+            Label("Репозитория этой папки больше нет, снимок сделать нельзя. Папка уйдёт в Корзину.", systemImage: "folder.badge.questionmark")
+            if !item.group.jobs.isEmpty {
+                Label("Убрать нельзя: у папки есть задача", systemImage: "lock").foregroundStyle(.orange)
+            } else if !damageBlocks.isEmpty {
+                Label("Убрать нельзя: \(WorktreeCleanup.text(damageBlocks))", systemImage: "lock").foregroundStyle(.orange)
+            } else if asking {
+                HStack { ProgressView().controlSize(.small); Text("Haiku проверяет, нет ли там нужного…") }
+            } else if let advice {
+                Label("Haiku: \(advice.why)", systemImage: advice.delete ? "checkmark.seal" : "hand.raised")
+                    .foregroundStyle(advice.delete ? .green : .orange)
+            } else if asked {
+                HStack {
+                    Text("Haiku не ответил").foregroundStyle(.orange)
+                    Button("Спросить снова") { Task { await ask() } }
+                }
+            }
+        }
     }
 
     @ViewBuilder
